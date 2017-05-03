@@ -1,5 +1,11 @@
 
 
+Download dependencies
+go get ./...
+
+Build
+go build photofix
+
 
 Cross compiling
 
