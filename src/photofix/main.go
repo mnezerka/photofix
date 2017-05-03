@@ -27,6 +27,15 @@ func diffColors(p1 color.RGBA, p2 color.RGBA) int {
 	return diff
 }
 
+func avgColors(p1 color.RGBA, p2 color.RGBA) color.RGBA {
+	var result color.RGBA
+	result.R = uint8((int(p1.R) + int(p2.R)) / 2)
+	result.G = uint8((int(p1.G) + int(p2.G)) / 2)
+	result.B = uint8((int(p1.B) + int(p2.B)) / 2)
+	result.A = 255
+	return result
+}
+
 func rotatePt(p image.Point, imgSize image.Rectangle, angle uint) image.Point {
 	var result image.Point = p
 
@@ -144,7 +153,7 @@ func fixLineError(imgOrig *image.Image, img *draw.Image) error {
 	const shiftY = 0
 
 	// distance to be used for checking colour of surrounding pixels
-	const shiftCheck = 3
+	const shiftCheck = 2
 
 	bounds := (*img).Bounds()
 
@@ -168,7 +177,15 @@ func fixLineError(imgOrig *image.Image, img *draw.Image) error {
 	defect[2] = image.Pt(bounds.Max.X-defectX, bounds.Max.Y-defectY)
 	defect[3] = image.Pt(bounds.Max.X-defectY, defectX)
 
+	var defectDirection = [4][2]int{
+		{0, 1},
+		{1, 0},
+		{0, -1},
+		{-1, 0},
+	}
+
 	var diff [4]int
+	var green [4]uint
 
 	for angle := 0; angle < 4; angle++ {
 
@@ -179,95 +196,80 @@ func fixLineError(imgOrig *image.Image, img *draw.Image) error {
 		}
 
 		fmt.Printf("...angle: %d\n", angle*90)
-		fmt.Print("...defect pos: ", defect[angle], "\n")
+		fmt.Print("......defect pos: ", defect[angle], "\n")
+		fmt.Print("......defect direction: ", defectDirection[angle], "\n")
 
 		diff[angle] = 0
-		for i := 0; i < 10; i++ {
-			var c color.RGBA = (*img).At(defect[angle].X+i, defect[angle].Y).(color.RGBA)
-			var c2 color.RGBA = (*img).At(defect[angle].X+i, defect[angle].Y+shiftCheck).(color.RGBA)
-			diff[angle] += diffColors(c, c2)
+		green[angle] = 0
+		for i := 0; i < 400; i++ {
+			var offsetX = i * defectDirection[angle][0]
+			var offsetY = i * defectDirection[angle][1]
+			//fmt.Printf("...%d, %d\n", defect[angle].X+offsetX, defect[angle].Y+offsetY)
+
+			var c color.RGBA = (*img).At(defect[angle].X+offsetX, defect[angle].Y+offsetY).(color.RGBA)
+			//var c2 color.RGBA = (*img).At(defect[angle].X+offsetX, defect[angle].Y+shiftCheck+offsetY).(color.RGBA)
+			//diff[angle] += diffColors(c, c2)
+			green[angle] += uint(c.G)
 		}
-		fmt.Printf("...diff: %d\n", diff[angle])
+		//fmt.Printf("...diff: %d\n", diff[angle])
+		fmt.Printf("......green: %d\n", green[angle])
 	}
 
-	/*
-			var diffLeft int = 0
-			var diffRight int = 0
+	// find max green
+	var angleFinal int = 0
+	var greenMax uint = 0
 
-			// take 10 pixel line both from right and left, compute color diff
-			// and do heuristic decision based on this diff value
-
-			var defect90 = image.Pt(defectY, bounds.Max.Y-defectX)
-			var defect270 = image.Pt(bounds.Max.X-defectY, defectX)
-
-			fmt.Print("...defect 90: ", defect90, "\n")
-			fmt.Print("...defect 270: ", defect270, "\n")
-
-			for i := 0; i < 10; i++ {
-				var l color.RGBA = (*img).At(defect90.X+i, defect90.Y).(color.RGBA)
-				var l2 color.RGBA = (*img).At(defect90.X+i, defect90.Y+shiftCheck).(color.RGBA)
-				var r color.RGBA = (*img).At(defect270.X+i, defect270.Y).(color.RGBA)
-				var r2 color.RGBA = (*img).At(defect270.X+i, defect270.Y+shiftCheck).(color.RGBA)
-
-				diffLeft += diffColors(l, l2)
-				diffRight += diffColors(r, r2)
-			}
-
-			if diffLeft > diffRight {
-				angle = 90
-				fmt.Print("left rotation detected\n")
-			} else {
-				angle = 270
-				fmt.Print("right rotation detected\n")
-			}
+	for angle := 0; angle < 4; angle++ {
+		if green[angle] > greenMax {
+			angleFinal = angle
+			greenMax = green[angle]
 		}
-	*/
+	}
+
+	fmt.Printf("...angle final: %d\n", angleFinal*90)
+
 	// fix line
-	/*
-		for y := defectY + 5; y <= 2000; y++ {
-			for x := 2; x >= 0; x-- {
-				pt := rotatePt(image.Pt(defectX+x, y), bounds, angle)
-				ptPick := rotatePt(image.Pt(pt.X+3, pt.Y), bounds, angle)
-				colorPick := (*imgOrig).At(ptPick.X, ptPick.Y)
-				(*img).Set(pt.X, pt.Y, colorPick)
-			}
+	var fixPos = defect[angleFinal]
 
-			for x := -2; x < 0; x++ {
-				pt := rotatePt(image.Pt(defectX+x, y), bounds, angle)
-				ptPick := rotatePt(image.Pt(pt.X-2, pt.Y), bounds, angle)
-				colorPick := (*imgOrig).At(ptPick.X, ptPick.Y)
-				(*img).Set(pt.X, pt.Y, colorPick)
-			}
-	*/
-	/*
+	var sampleDir [2]int
+	if defectDirection[angleFinal][0] != 0 {
+		sampleDir[1] = 1
+	} else {
+		sampleDir[0] = 1
+	}
 
-		        // pick left and right colors
-		        ptLeftPick := rotatePt(image.Pt(lineX-2, y), bounds, angle)
-		        ptRightPick := rotatePt(image.Pt(lineX+2, y), bounds, angle)
-		        left  := (*img).At(ptLeftPick.X, ptLeftPick.Y).(color.RGBA)
-		        right := (*img).At(ptRightPick.X, ptRightPick.Y).(color.RGBA)
+	fmt.Print("...fixing line from ", fixPos, "sampling direction: ", sampleDir, "\n")
 
-				// simple interpolation of 3 pixels
-		        ptCenter := rotatePt(image.Pt(lineX, y), bounds, angle)
-		        ptLeft := rotatePt(image.Pt(lineX - 1, y), bounds, angle)
-		        ptRight := rotatePt(image.Pt(lineX + 1, y), bounds, angle)
+	for fixPos.In(bounds) {
 
-				(*img).Set(ptCenter.X, ptCenter.Y, color.RGBA{(left.R + right.R) / 2, (left.G + right.G) / 2, (left.B + right.B) / 2, 255})
-				(*img).Set(ptLeft.X, ptLeft.Y, color.RGBA{(left.R + right.R) / 2, (left.G + right.G) / 2, (left.B + right.B) / 2, 255})
-				(*img).Set(ptRight.X, ptRight.Y, color.RGBA{(left.R + right.R) / 2, (left.G + right.G) / 2, (left.B + right.B) / 2, 255})
-	*/
-	/*}*/
+		/*
+		 *  +----+---+---+---+----+
+		 *  | 11 | 1 | X | 2 | 22 |
+		 *  +----+---+---+---+----+
+		 *
+		 */
+
+		// sample colors around currently fixed pixel "X"
+		color11 := (*imgOrig).At(fixPos.X+sampleDir[0]*2, fixPos.Y+sampleDir[1]*2).(color.RGBA)
+		color22 := (*imgOrig).At(fixPos.X+sampleDir[0]*-2, fixPos.Y+sampleDir[1]*-2).(color.RGBA)
+
+		// fix color in center pixel "X"
+		(*img).Set(fixPos.X, fixPos.Y, avgColors(color11, color22))
+
+		//fmt.Print("...setting ", fixPos, "to white\n")
+		//fmt.Print("...setting ", fixPos.X+sampleDir[0]*1, fixPos.Y+sampleDir[1]*1, "as 1\n")
+
+		// fix color in pixel "1"
+		(*img).Set(fixPos.X+sampleDir[0]*1, fixPos.Y+sampleDir[1]*1, color11)
+
+		// fix color in pixel "2"
+		(*img).Set(fixPos.X+sampleDir[0]*-1, fixPos.Y+sampleDir[1]*-1, color22)
+
+		fixPos.X += defectDirection[angleFinal][0]
+		fixPos.Y += defectDirection[angleFinal][1]
+	}
 
 	// fix point
-	/*
-		for x := lineX - dia; x <= lineX+dia; x++ {
-			for y := lineY - dia; y <= lineY+dia; y++ {
-				pt := rotatePt(image.Pt(x, y), bounds, angle)
-				ptShifted := rotatePt(image.Pt(x+shiftX, y+shiftY), bounds, angle)
-				src := (*img).At(ptShifted.X, ptShifted.Y).(color.RGBA)
-				(*img).Set(pt.X, pt.Y, color.RGBA{src.R, src.G, src.B, 255})
-			}
-		}
-	*/
+
 	return nil
 }

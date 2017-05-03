@@ -1,0 +1,5 @@
+images
+bin
+*exe
+pkg
+src/golang.org
