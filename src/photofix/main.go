@@ -12,15 +12,15 @@ import (
 	"strings"
 )
 
-func abs(i int) int {
+func abs(i int) uint {
 	if i < 0 {
-		return -i
+		return uint(-i)
 	}
-	return i
+	return uint(i)
 }
 
-func diffColors(p1 color.RGBA, p2 color.RGBA) int {
-	var diff int = 0
+func diffColors(p1 color.RGBA, p2 color.RGBA) uint {
+	var diff uint = 0
 	diff += abs(int(p1.R) - int(p2.R))
 	diff += abs(int(p1.G) - int(p2.G))
 	diff += abs(int(p1.B) - int(p2.B))
@@ -33,20 +33,6 @@ func avgColors(p1 color.RGBA, p2 color.RGBA) color.RGBA {
 	result.G = uint8((int(p1.G) + int(p2.G)) / 2)
 	result.B = uint8((int(p1.B) + int(p2.B)) / 2)
 	result.A = 255
-	return result
-}
-
-func rotatePt(p image.Point, imgSize image.Rectangle, angle uint) image.Point {
-	var result image.Point = p
-
-	if angle == 90 {
-		result.X = p.Y
-		result.Y = imgSize.Max.Y - 1 - p.X
-	} else if angle == 270 {
-		result.X = imgSize.Max.X - 1 - p.Y
-		result.Y = p.X
-	}
-
 	return result
 }
 
@@ -110,30 +96,13 @@ func saveImage(image *draw.Image, path string) {
 	png.Encode(toimg, *image)
 }
 
-// 1 - horizontal , 2- vertical_90, 3 - vertical_270
-func detectOrientation(image *draw.Image) int {
-	bounds := (*image).Bounds()
-
-	// 0 - wrong, 1 - horizontal , 2- vertical
-	orientation := 0
-
-	if bounds.Max.X == 3008 || bounds.Max.Y == 2000 {
-		orientation = 1
-	} else if bounds.Max.Y == 3008 || bounds.Max.X == 2000 {
-		// implementation of detection
-		orientation = 2
-	}
-
-	return orientation
-}
-
 func processImage(image *image.Image) (*draw.Image, error) {
 	// make image writeable
 	newImage := cloneToRGBA(*image)
 
 	var err error
 
-	err = fixLineError(image, &newImage)
+	err = fixLineError(&newImage)
 
 	return &newImage, err
 }
@@ -145,15 +114,10 @@ func cloneToRGBA(src image.Image) draw.Image {
 	return dst
 }
 
-func fixLineError(imgOrig *image.Image, img *draw.Image) error {
+func fixLineError(img *draw.Image) error {
+	// position of line defect start point in horizontal orientation
 	const defectX = 1572
 	const defectY = 1451
-	const dia = 4
-	const shiftX = 10
-	const shiftY = 0
-
-	// distance to be used for checking colour of surrounding pixels
-	const shiftCheck = 2
 
 	bounds := (*img).Bounds()
 
@@ -177,14 +141,15 @@ func fixLineError(imgOrig *image.Image, img *draw.Image) error {
 	defect[2] = image.Pt(bounds.Max.X-defectX, bounds.Max.Y-defectY)
 	defect[3] = image.Pt(bounds.Max.X-defectY, defectX)
 
-	var defectDirection = [4][2]int{
-		{0, 1},
-		{1, 0},
-		{0, -1},
-		{-1, 0},
+	// { defect dir x, defect dir y, sample dir x, sample dir y }
+	var defectDirections = [4][4]int{
+		{0, 1, 2, 0},
+		{1, 0, 0, 2},
+		{0, -1, 2, 0},
+		{-1, 0, 0, 2},
 	}
 
-	var diff [4]int
+	var diff [4]uint
 	var green [4]uint
 
 	for angle := 0; angle < 4; angle++ {
@@ -197,32 +162,45 @@ func fixLineError(imgOrig *image.Image, img *draw.Image) error {
 
 		fmt.Printf("...angle: %d\n", angle*90)
 		fmt.Print("......defect pos: ", defect[angle], "\n")
-		fmt.Print("......defect direction: ", defectDirection[angle], "\n")
+		fmt.Print("......defect direction: ", defectDirections[angle], "\n")
 
-		diff[angle] = 0
+		// green test - sum of green color in all defect line pixels
 		green[angle] = 0
+
+		// color diff of pixels on defect line and surrounding pixels
+		// this is needes since green test doesn't work well in specific
+		// situations - e.g. blue sky has lot of green
+		diff[angle] = 0
+
 		for i := 0; i < 400; i++ {
-			var offsetX = i * defectDirection[angle][0]
-			var offsetY = i * defectDirection[angle][1]
+			var offsetX = i * defectDirections[angle][0]
+			var offsetY = i * defectDirections[angle][1]
 			//fmt.Printf("...%d, %d\n", defect[angle].X+offsetX, defect[angle].Y+offsetY)
 
 			var c color.RGBA = (*img).At(defect[angle].X+offsetX, defect[angle].Y+offsetY).(color.RGBA)
-			//var c2 color.RGBA = (*img).At(defect[angle].X+offsetX, defect[angle].Y+shiftCheck+offsetY).(color.RGBA)
-			//diff[angle] += diffColors(c, c2)
 			green[angle] += uint(c.G)
+
+			// get diff of pixel on line and one surrounding pixel
+			var c2 color.RGBA = (*img).At(defect[angle].X+offsetX+defectDirections[angle][2], defect[angle].Y+offsetY+defectDirections[angle][3]).(color.RGBA)
+			diff[angle] += diffColors(c, c2)
 		}
 		//fmt.Printf("...diff: %d\n", diff[angle])
 		fmt.Printf("......green: %d\n", green[angle])
+		fmt.Printf("......diff: %d\n", diff[angle])
 	}
 
-	// find max green
+	// find max diff and max green
 	var angleFinal int = 0
 	var greenMax uint = 0
+	var diffMax uint = 0
 
 	for angle := 0; angle < 4; angle++ {
 		if green[angle] > greenMax {
-			angleFinal = angle
 			greenMax = green[angle]
+		}
+		if diff[angle] > diffMax {
+			angleFinal = angle
+			diffMax = diff[angle]
 		}
 	}
 
@@ -232,13 +210,13 @@ func fixLineError(imgOrig *image.Image, img *draw.Image) error {
 	var fixPos = defect[angleFinal]
 
 	var sampleDir [2]int
-	if defectDirection[angleFinal][0] != 0 {
+	if defectDirections[angleFinal][0] != 0 {
 		sampleDir[1] = 1
 	} else {
 		sampleDir[0] = 1
 	}
 
-	fmt.Print("...fixing line from ", fixPos, "sampling direction: ", sampleDir, "\n")
+	fmt.Print("...fixing line from ", fixPos, " sampling direction: ", sampleDir, "\n")
 
 	for fixPos.In(bounds) {
 
@@ -250,8 +228,8 @@ func fixLineError(imgOrig *image.Image, img *draw.Image) error {
 		 */
 
 		// sample colors around currently fixed pixel "X"
-		color11 := (*imgOrig).At(fixPos.X+sampleDir[0]*2, fixPos.Y+sampleDir[1]*2).(color.RGBA)
-		color22 := (*imgOrig).At(fixPos.X+sampleDir[0]*-2, fixPos.Y+sampleDir[1]*-2).(color.RGBA)
+		color11 := (*img).At(fixPos.X+sampleDir[0]*2, fixPos.Y+sampleDir[1]*2).(color.RGBA)
+		color22 := (*img).At(fixPos.X+sampleDir[0]*-2, fixPos.Y+sampleDir[1]*-2).(color.RGBA)
 
 		// fix color in center pixel "X"
 		(*img).Set(fixPos.X, fixPos.Y, avgColors(color11, color22))
@@ -265,8 +243,8 @@ func fixLineError(imgOrig *image.Image, img *draw.Image) error {
 		// fix color in pixel "2"
 		(*img).Set(fixPos.X+sampleDir[0]*-1, fixPos.Y+sampleDir[1]*-1, color22)
 
-		fixPos.X += defectDirection[angleFinal][0]
-		fixPos.Y += defectDirection[angleFinal][1]
+		fixPos.X += defectDirections[angleFinal][0]
+		fixPos.Y += defectDirections[angleFinal][1]
 	}
 
 	// fix point
