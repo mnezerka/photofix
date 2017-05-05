@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head lang="cs">
+  <meta charset="UTF-8">
+  <title>Photofix</title>
+
+  <style>
+
+    body { background-color: #d0d0d0; }
+
+    h1 {
+        font-size: 20px;    
+    }
+
+    pre {
+        margin-left: 10px;
+        margin-right: 10px;
+        padding: 5px;
+        color: #c0c0c0;
+        background-color: #000;
+    }
+    .musttype {
+        color: #fff;
+        font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Photofix</h1>
+
+<h2>Instalace</h2>
+
+<p>Stahnes si <a href="photofix.exe">photofix.exe</a> a ulozis ho nekam k sobe na disk - napr. do C:\photofix\photofix.exe. Kdyz ho ulozis do zvlastniho mista, napr. do C:\Windows, budes to s tim pak mit jednodussi, protoze nebudes muset vypisovat celou cestu.</p>
+
+<p>Pracuje se v prikazove radce, kterou spustis napr. tak, ze v nabidce start zacnes psat "cmd". Funguje taky klavesova zkratka "Windows-klavesa + R" a napsat "cmd". Pro otestovani zkus tohle:</p>
+
+<pre>
+C:\Users\I330128&gt;C:\photofix\photofix.exe
+No images to be processed
+</pre>
+
+pokud ho ulozis do C:\Windows, pak muzes zkusit tohle:
+<pre>
+C:\Users\I330128&gt;photofix.exe
+No images to be processed
+</pre>
+
+Vypise ti to "No images to be processed", coz znamena, ze ti to funguje.
+
+<h2>Pracovni adresar</h2>
+
+<p>Pak je treba vlezt do adresare s fotkama, to se dela prikazem "cd". Takze napr. takhle:</p>
+
+<pre>
+C:\Users\I33128&gt;<span class="musttype">cd c:\obrazky\2017\leden\akceXYZ<span>
+</pre>
+
+<p>Jestli pouzivas Total Commander (Windows commander), tak v tom commanderu vlezes do adresare s obrazkama, kde chces delat opravy, a dole pod panely napises "cmd" do okynka pro zadavani prikazu.</p>
+
+<h2>Oprava - jeden soubor</h2>
+
+<p>Muzes opravit jeden soubor. V prikazovem radku vlezes do adresare kde mas ten obrazek a napises tam cestu k tomu photofix.exe, za to das nazev obrazku. Program udela na stejnem miste obrazek, ke kteremu prida priponu "_fix" a format bude png.
+
+<pre>
+C:\obrazky\akceXYZ&gt;
+
+C:\obrazky\akceXYZ&gt;<span class="musttype">C:\photofix\photofix.exe IMAGE_0123.TIFF</span>
+fixing IMAGE_0123.TIFF -&gt; IMAGE_0123_fix.png
+Fixing line error
+...image dimensions (3008, 2000)
+...angle: 0
+......defect pos: (1572,1451)
+......defect direction: [0 1 2 0]
+......green: 55883
+......diff: 54553
+...angle: 180
+......defect pos: (1436,549)
+......defect direction: [0 -1 2 0]
+......green: 7271
+......diff: 376
+...angle final: 0
+...fixing line from (1572,1451) sampling direction: [1 0]
+done.
+
+C:\obrazky\akceXYZ&gt;
+
+</pre>
+
+<h2>Oprava - vsechny soubory v adresari</h2>
+
+<pre>
+C:\obrazky\akceXYZ&gt;
+
+C:\obrazky\akceXYZ&gt;<span class="musttype">C:\photofix\photofix.exe *</span>
+fixing IMAGE_0123.TIFF -&gt; IMAGE_0123_fix.png
+...
+fixing IMAGE_0124.TIFF -&gt; IMAGE_0124_fix.png
+...
+fixing IMAGE_0125.TIFF -&gt; IMAGE_0125_fix.png
+...
+atd. pro vsechny obrazky
+
+C:\obrazky\akceXYZ&gt;
+
+</pre>
+
+
+</body>
+</html>
+
